@@ -297,7 +297,7 @@ void *mm_realloc(void *ptr, size_t size)
         return newptr;
     }
     else if(size == copySize){
-        return ptr;
+        return oldptr;
     }
     else{
         size = DSIZE * ((size + (DSIZE) + (DSIZE-1)) / DSIZE);
