@@ -136,7 +136,7 @@ static void *coalesce(void *bp)
 
         update_freelist(bp);
     }
-    else if(heap_listp != PREV_BLKP(bp)){//##############################################check######################
+    else{//##############################################check######################
         detach_from_freelist(PREV_BLKP(bp));
         detach_from_freelist(NEXT_BLKP(bp));
 
@@ -212,7 +212,7 @@ static void *find_fit(size_t asize){
     for(int i = num; i < 30; i++){
          seg_p = POINTER_GET(free_listp + i*WSIZE);
          while(seg_p != NULL){
-             if (GET_SIZE(HDRP(seg_p)) >= asize && (int)GET_SIZE(HDRP(seg_p)) > 0){
+             if ((int)GET_SIZE(HDRP(seg_p)) >= (int)asize){
                  if (get_block == NULL){
                      get_block = seg_p;
                  }

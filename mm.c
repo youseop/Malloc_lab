@@ -63,8 +63,8 @@ team_t team = {
 #define POINTER_PUT(p, val)    (*(unsigned int *)(p) = (unsigned int)(val)) 
 
 //Get block pointer of PRE & SUC
-#define GET_PRE(bp) POINTER_GET(bp + WSIZE)
-#define GET_SUC(bp) POINTER_GET(bp)
+#define GET_PRE(bp) POINTER_GET(bp)
+#define GET_SUC(bp) POINTER_GET(bp + WSIZE)
 
 //Get PRE & SUC of PRE & SUC
 #define GET_PRE_PRE(bp) POINTER_GET(bp)
@@ -73,25 +73,21 @@ team_t team = {
 #define GET_SUC_SUC(bp) POINTER_GET(bp + WSIZE) + WSIZE
 
 static char* heap_listp; //start point of heap
-static char* free_listp; //start point of segmentation
-static char* next_listp; //pointer for next fit
 
 static void *update_freelist(void* bp)
 {
     //head - 'new' - next (place new between head & next
-    size_t size = GET_SIZE(HDRP(bp));
-    char* seg_p = free_listp;
-    for(int j = size; j > 1; j=j>>1){
-        seg_p += WSIZE;
+    char *head_suc = GET_SUC(heap_listp);
+
+    POINTER_PUT(bp, heap_listp);          //put preprocessor in bp(block)
+    POINTER_PUT(bp + WSIZE, head_suc);    //put successor in bp(block)
+
+    POINTER_PUT(heap_listp + WSIZE, bp);  //put successor in head(block)
+    
+    if(head_suc != NULL){
+        POINTER_PUT(head_suc, bp);        //put preprocessor in previous head successor(block)
     }
 
-    char* seg_next = GET_SUC(seg_p);
-    POINTER_PUT(bp, seg_next);
-    POINTER_PUT(bp+WSIZE, seg_p);
-    POINTER_PUT(seg_p, bp);
-    if (seg_next){
-        POINTER_PUT(seg_next+WSIZE, bp);
-    }
     return bp;
 }
 
@@ -100,10 +96,10 @@ static void *detach_from_freelist(void *bp)
     char* bp_next = GET_SUC(bp);
     char* bp_prev = GET_PRE(bp);
     if(bp_prev != NULL){
-      POINTER_PUT(bp_prev, bp_next);
+      POINTER_PUT(bp_prev + WSIZE, bp_next); // error ###############################
     }
     if(bp_next != NULL){
-      POINTER_PUT(bp_next + WSIZE, bp_prev);
+      POINTER_PUT(bp_next, bp_prev);
     }
     return bp;
 }
@@ -136,7 +132,7 @@ static void *coalesce(void *bp)
 
         update_freelist(bp);
     }
-    else if(heap_listp != PREV_BLKP(bp)){//##############################################check######################
+    else{
         detach_from_freelist(PREV_BLKP(bp));
         detach_from_freelist(NEXT_BLKP(bp));
 
@@ -165,6 +161,7 @@ static void *extend_heap(size_t words)
     if((long)(bp = mem_sbrk(size)) == -1){
         return NULL;
     }
+    //printf("[extendheap]\nbp: %p\nheap_listp: %p\nHDRP(bp): %p\nPREV_BLKP(bp): %p\n[extendheap-end]\n",bp,heap_listp,HDRP(bp),PREV_BLKP(bp));
     PUT(HDRP(bp), PACK(size, 0));        //Free block header
     PUT(FTRP(bp), PACK(size, 0));        //Free block footer
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0,1)); //New epilogue header
@@ -177,60 +174,38 @@ static void *extend_heap(size_t words)
  * mm_init - initialize the malloc package.
  * returning 0 if successful and −1 otherwise
  */
-int mm_init(void) 
+int mm_init(void) // done
 {
-    if((free_listp = mem_sbrk(30 * WSIZE)) == (void *)-1)
+    if((heap_listp = mem_sbrk(6*WSIZE)) == (void *)-1){
         return -1;
-
-    for(int i = 0; i < 30; i++){
-        PUT(free_listp + i*WSIZE, NULL); 
     }
-
-    if((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
-        return -1;
-
-    PUT(heap_listp, 0);                             /* Alignment padding */
-    PUT(heap_listp + (1*WSIZE), PACK(DSIZE, 1));    /* Prologue header */
-    PUT(heap_listp + (2*WSIZE), PACK(DSIZE, 1));    /* Prologue footer */
-    PUT(heap_listp + (3*WSIZE), PACK(0, 1));        /* Epilogue header */
+    PUT(heap_listp, 0);                                         //padding
+    PUT(heap_listp + (1*WSIZE), PACK(2*DSIZE, 1));              //prologue - header
+    POINTER_PUT(heap_listp + (2*WSIZE), NULL);                  //prologue - predecssor
+    POINTER_PUT(heap_listp + (3*WSIZE), NULL);                  //prologue - successor
+    PUT(heap_listp + (4*WSIZE), PACK(2*DSIZE, 1));              //prologue - footer
+    PUT(heap_listp + (5*WSIZE), PACK(0,1));                     //epilogue - header
+    
     heap_listp += (2*WSIZE);
-
     if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
         return -1;
-
     return 0;
 }
 
 
 static void *find_fit(size_t asize){
-    char* get_block = NULL;
-    char* seg_p;
-    char* num = 0;
-    for(int j = asize; j > 1; j=j>>1){
-        num ++;
-    }
-    for(int i = num; i < 30; i++){
-         seg_p = POINTER_GET(free_listp + i*WSIZE);
-         while(seg_p != NULL){
-             if (GET_SIZE(HDRP(seg_p)) >= asize && (int)GET_SIZE(HDRP(seg_p)) > 0){
-                 if (get_block == NULL){
-                     get_block = seg_p;
-                 }
-                 else if(GET_SIZE(HDRP(get_block)) > GET_SIZE(HDRP(seg_p))){
-                     get_block = seg_p;
-                 }
-             }
-             seg_p = GET_PRE(seg_p);
-         }
-         if (get_block){
-             return get_block;
-         }
+    void *bp;
+    for(bp = GET_SUC(heap_listp); bp != NULL; bp = GET_SUC(bp)){
+        if(asize <= GET_SIZE(HDRP(bp))){
+            return bp;
+        }
     }
     return NULL;
 }
 
 static void place(void *bp, size_t asize){
     size_t csize = GET_SIZE(HDRP(bp));
+
     detach_from_freelist(bp);
     if((csize - asize) >= (2*DSIZE)){
         PUT(HDRP(bp), PACK(asize, 1));
@@ -291,6 +266,10 @@ void *mm_malloc(size_t size)
 void mm_free(void *bp)
 {
     size_t size = GET_SIZE(HDRP(bp));
+    // if(bp == heap_listp){
+    //     printf("1heap_listp: %p\n",heap_listp);
+    //     return;
+    // }
     PUT(HDRP(bp), PACK(size,0));
     PUT(FTRP(bp), PACK(size,0));
     coalesce(bp);
