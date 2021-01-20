@@ -161,7 +161,6 @@ static void *extend_heap(size_t words)
     if((long)(bp = mem_sbrk(size)) == -1){
         return NULL;
     }
-    //printf("[extendheap]\nbp: %p\nheap_listp: %p\nHDRP(bp): %p\nPREV_BLKP(bp): %p\n[extendheap-end]\n",bp,heap_listp,HDRP(bp),PREV_BLKP(bp));
     PUT(HDRP(bp), PACK(size, 0));        //Free block header
     PUT(FTRP(bp), PACK(size, 0));        //Free block footer
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0,1)); //New epilogue header

@@ -167,7 +167,6 @@ static void *find_fit(size_t size)
     }
     return NULL;
 }
-//이상 없음..
 static void *place(void *bp, size_t asize)
 {
     size_t remainSize = GET_SIZE(HDRP(bp)) - asize;
@@ -284,7 +283,6 @@ void *mm_realloc(void *ptr, size_t size)
             {
                 return NULL;
             }
-            //##########################################################################################################
             PUT(HDRP(bp), PACK(extendsize, 0));
             PUT(FTRP(bp), PACK(extendsize, 0));
 

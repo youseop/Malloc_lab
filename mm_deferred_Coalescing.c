@@ -125,7 +125,6 @@ static void *extend_heap(size_t words)
     if((long)(bp = mem_sbrk(size)) == -1){
         return NULL;
     }
-    //printf("[extendheap]\nbp: %p\nheap_listp: %p\nHDRP(bp): %p\nPREV_BLKP(bp): %p\n[extendheap-end]\n",bp,heap_listp,HDRP(bp),PREV_BLKP(bp));
     PUT(HDRP(bp), PACK(size, 0));        //Free block header
     PUT(FTRP(bp), PACK(size, 0));        //Free block footer
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0,1)); //New epilogue header
@@ -140,7 +139,6 @@ static void *extend_heap(size_t words)
  */
 int mm_init(void)
 {
-    //printf("[init]\n");
     if((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1){
         return -1;
     }
@@ -148,10 +146,8 @@ int mm_init(void)
     PUT(heap_listp + (1*WSIZE), PACK(DSIZE, 1)); /* Prologue header */
     PUT(heap_listp + (2*WSIZE), PACK(DSIZE, 1)); /* Prologue footer */
     PUT(heap_listp + (3*WSIZE), PACK(0, 1)); /* Epilogue header */
-    //printf("heap_list (init): %p\n",heap_listp);
     heap_listp += (2*WSIZE);
     next_listp = heap_listp;
-    //printf("heap_listp(after): %p\n[init-end]\n",heap_listp);
     /* Extend the empty heap with a free block of CHUNKSIZE bytes */
     if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
         return -1;
@@ -174,13 +170,6 @@ static void *find_fit(size_t asize){
           bp = NEXT_BLKP(bp);
         }
     }
-
-    // for(bp = next_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
-    //     if( !GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))){
-    //         return bp;
-    //     }
-    //     //printf("%p\n",HDRP(bp));
-    // }
     return NULL;
 }
 
@@ -275,7 +264,6 @@ void mm_free(void *bp)
 
     PUT(HDRP(bp), PACK(size,0));
     PUT(FTRP(bp), PACK(size,0));
-    //coalesce(bp);
     next_listp = bp;
 }
 

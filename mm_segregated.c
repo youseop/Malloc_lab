@@ -136,7 +136,7 @@ static void *coalesce(void *bp)
 
         update_freelist(bp);
     }
-    else{//##############################################check######################
+    else{
         detach_from_freelist(PREV_BLKP(bp));
         detach_from_freelist(NEXT_BLKP(bp));
 
@@ -301,8 +301,6 @@ void mm_free(void *bp)
  */
 void *mm_realloc(void *ptr, size_t size)
 {
-    //size < copysize || GET_ALLOC(HDRP(NEXT_BLKP(bp))) == 1 >> move ptr
-    // GET_ALLOC(HDRP(NEXT_BLKP(bp))) == 1 && GET_SIZE(HDRP(NEXT_BLKP(bp))) > size - copysize
     void *oldptr = ptr;
     void *bp = ptr;
     void *newptr;
