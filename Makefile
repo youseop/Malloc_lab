@@ -28,7 +28,7 @@ clean:
 	rm -f *~ *.o mdriver
 
 start : 
-	./mdriver
+	./mdriver -v
 
 run : clean mdriver start
 

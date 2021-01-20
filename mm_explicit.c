@@ -96,7 +96,7 @@ static void *detach_from_freelist(void *bp)
     char* bp_next = GET_SUC(bp);
     char* bp_prev = GET_PRE(bp);
     if(bp_prev != NULL){
-      POINTER_PUT(bp_prev + WSIZE, bp_next); // error ###############################
+      POINTER_PUT(bp_prev + WSIZE, bp_next); 
     }
     if(bp_next != NULL){
       POINTER_PUT(bp_next, bp_prev);
@@ -132,7 +132,7 @@ static void *coalesce(void *bp)
 
         update_freelist(bp);
     }
-    else if(heap_listp != PREV_BLKP(bp)){//##############################################check######################
+    else{//##############################################check######################
         detach_from_freelist(PREV_BLKP(bp));
         detach_from_freelist(NEXT_BLKP(bp));
 
@@ -196,7 +196,7 @@ int mm_init(void) // done
 
 static void *find_fit(size_t asize){ // done
     void *bp;
-    for(bp = heap_listp; bp != NULL; bp = GET_SUC(bp)){
+    for(bp = GET_SUC(heap_listp); bp != NULL; bp = GET_SUC(bp)){
         if(asize <= GET_SIZE(HDRP(bp))){
             return bp;
         }
