@@ -7,6 +7,11 @@
 #include "mm.h"
 #include "memlib.h"
 
+/* @@ 코드 전반으로는 딱히 다듬을 게 없어보여서 추가적으로 할만한 코멘트는 없는거 같고
+   segregated 에 있던 리뷰 제외하고 몇 개만 더 추가했습니다
+   그리고 지난 커밋을 보니 segregated_advance 리뷰쓰다가 괄호가 하나 지워져서 추가했습니다
+   못 봤으면 그냥 넘어갈뻔 ㅋㅋ
+*/
 /*********************************************************
  * NOTE TO STUDENTS: Before you do anything else, please
  * provide your team information in the following struct.
@@ -62,9 +67,24 @@ team_t team = {
 #define POINTER_GET(p)         ((char *)*(unsigned int *)(p))
 #define POINTER_PUT(p, val)    (*(unsigned int *)(p) = (unsigned int)(val)) 
 
+/* @@ bp가 어떤 타입으로 들어올지 모르기 때문에 의도한 동작을 할 수 있게
+  (char *) 등의 캐스팅을 해주면 조금 더 안정적으로 사용할 수 있을 것 같네요 
+*/
+
 //Get block pointer of PRE & SUC
 #define GET_PRE(bp) POINTER_GET(bp)
 #define GET_SUC(bp) POINTER_GET(bp + WSIZE)
+
+/* @@ 
+    #define GET_PRE(bp) POINTER_GET(bp)
+    #define GET_SUC(bp) POINTER_GET(bp + WSIZE)
+
+    위, 아래 다른 매크로의 같은 값이 정의되어 있는데 직관적으로 사용하기 위해 다른 게 정의되어 있는걸까요?
+
+    #define GET_PRE_PRE(bp) POINTER_GET(bp)
+    #define GET_SUC_PRE(bp) POINTER_GET(bp + WSIZE)
+*/
+
 
 //Get PRE & SUC of PRE & SUC
 #define GET_PRE_PRE(bp) POINTER_GET(bp)

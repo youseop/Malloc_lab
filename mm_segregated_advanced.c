@@ -243,6 +243,7 @@ void *mm_malloc(size_t size)
     else
         asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
     if ((bp = find_fit(asize)) != NULL)
+    {
         bp = place(bp, asize);
         return bp;
     }
