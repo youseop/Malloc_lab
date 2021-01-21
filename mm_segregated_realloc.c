@@ -16,6 +16,7 @@
 #include <string.h>
 #include "mm.h"
 #include "memlib.h"
+
 /*기본적인 상수와 매크로*/
 #define WSIZE 4             // word and header/footer size(bytes)
 #define DSIZE 8             // Double word size (bytes)
@@ -34,6 +35,7 @@
 #define B(bp) (char *)GET((char *)bp + WSIZE)
 #define N(bp) (char *)GET((char *)bp)
 #define GET_SEGP(num) (char *)free_listp + (num * WSIZE)
+
 /*********************************************************
  * NOTE TO STUDENTS: Before you do anything else, please
  * provide your team information in the following struct.
@@ -50,6 +52,7 @@ team_t team = {
     /* Second member's email address (leave blank if none) */
     "stkang9409@gmail.com",
 };
+
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
 /* rounds up to the nearest multiple of ALIGNMENT */
@@ -57,6 +60,8 @@ team_t team = {
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 static char *heap_listp;
 static char *free_listp;
+
+
 static void detach_from_list(void *bp)
 {
     if (N(bp) != NULL)
@@ -68,6 +73,8 @@ static void detach_from_list(void *bp)
         PUT(B(bp), N(bp));
     }
 }
+
+
 static void update_free(void *bp)
 {
     size_t size = GET_SIZE(HDRP(bp));
@@ -84,6 +91,8 @@ static void update_free(void *bp)
     PUT(GET_SEGP(num), bp);
     PUT(bp + WSIZE, GET_SEGP(num));
 }
+
+
 static void *coalesce(void *bp)
 {
     size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
@@ -121,6 +130,8 @@ static void *coalesce(void *bp)
     update_free(bp);
     return bp;
 }
+
+
 static void *extend_heap(size_t words)
 {
     char *bp;
@@ -135,6 +146,8 @@ static void *extend_heap(size_t words)
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));
     return coalesce(bp);
 }
+
+
 static void *find_fit(size_t size)
 {
     int i = 0;
@@ -167,7 +180,8 @@ static void *find_fit(size_t size)
     }
     return NULL;
 }
-//이상 없음..
+
+
 static void place(void *bp, size_t asize)
 {
     size_t remainSize = GET_SIZE(HDRP(bp)) - asize;
@@ -186,6 +200,8 @@ static void place(void *bp, size_t asize)
         PUT(FTRP(bp), PACK(GET_SIZE(HDRP(bp)), 1));
     }
 }
+
+
 int mm_init(void)
 {
     if ((free_listp = mem_sbrk(26 * WSIZE)) == (void *)-1)
@@ -205,6 +221,8 @@ int mm_init(void)
         return -1;
     return 0;
 }
+
+
 void *mm_malloc(size_t size)
 {
     size_t asize;
@@ -227,6 +245,8 @@ void *mm_malloc(size_t size)
     place(bp, asize);
     return bp;
 }
+
+
 void mm_free(void *ptr)
 {
     size_t size = GET_SIZE(HDRP(ptr));
@@ -234,6 +254,8 @@ void mm_free(void *ptr)
     PUT(FTRP(ptr), PACK(size, 0));
     coalesce(ptr);
 }
+
+
 void *mm_realloc(void *ptr, size_t size)
 {
     void *new_ptr = ptr; /* Pointer to be returned */
@@ -254,8 +276,7 @@ void *mm_realloc(void *ptr, size_t size)
     {
         new_size = ALIGN(size + DSIZE);
     }
-    block_buffer = GET_SIZE(HDRP(ptr)) - new_size;
-    if (block_buffer < 0) //늘리고싶다.
+    if ( GET_SIZE(HDRP(ptr)) < new_size) //늘리고싶다.
     {
         if (!GET_ALLOC(HDRP(NEXT_BLKP(ptr))))
         {
