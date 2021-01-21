@@ -312,7 +312,9 @@ void *mm_realloc(void *ptr, size_t size)
             }
             else
             {
-                new_ptr = mm_malloc(new_size - DSIZE);
+                if((new_ptr = mm_malloc(new_size - DSIZE)) == NULL){
+                    return NULL;
+                }
                 memcpy(new_ptr, ptr, MIN(size, new_size));
                 mm_free(ptr);
             }
@@ -334,7 +336,9 @@ void *mm_realloc(void *ptr, size_t size)
         }
         else
         {
-            new_ptr = mm_malloc(new_size - DSIZE);
+            if((new_ptr = mm_malloc(new_size - DSIZE)) == NULL){
+                return NULL;
+            }
             memcpy(new_ptr, ptr, MIN(size, new_size));
             mm_free(ptr);
         }

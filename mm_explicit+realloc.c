@@ -19,9 +19,9 @@ team_t team = {
     /* First member's email address */
     "edlsw@naver.com",
     /* Second member's full name (leave blank if none) */
-    "",
+    "강민규",
     /* Second member's email address (leave blank if none) */
-    ""
+    "stkang9409@gmail.com",
 };
 
 /* single word (4) or double word (8) alignment */
@@ -31,7 +31,7 @@ team_t team = {
 #define CHUNKSIZE  (1<<12)       // Extend heap by this amount(bytes)
 
 #define MAX(x,y)   ((x) > (y)? (x) : (y))
-
+#define MIN(x,y)   ((x) < (y)? (x) : (y))
 //Pack a size and allocated bit into a word
 #define PACK(size, alloc) ((size) | (alloc))
 
@@ -91,18 +91,20 @@ static void *update_freelist(void* bp)
     return bp;
 }
 
+
 static void *detach_from_freelist(void *bp)
 {
     char* bp_next = GET_SUC(bp);
     char* bp_prev = GET_PRE(bp);
     if(bp_prev != NULL){
-      POINTER_PUT(bp_prev + WSIZE, bp_next); // error ###############################
+      POINTER_PUT(bp_prev + WSIZE, bp_next); 
     }
     if(bp_next != NULL){
       POINTER_PUT(bp_next, bp_prev);
     }
     return bp;
 }
+
 
 static void *coalesce(void *bp)
 {
@@ -132,7 +134,7 @@ static void *coalesce(void *bp)
 
         update_freelist(bp);
     }
-    else if(heap_listp != PREV_BLKP(bp)){
+    else{
         detach_from_freelist(PREV_BLKP(bp));
         detach_from_freelist(NEXT_BLKP(bp));
 
@@ -157,7 +159,7 @@ static void *extend_heap(size_t words)
     char *bp;
     size_t size;
 
-    size = (words % 2) ? (words + 1) * WSIZE : words * WSIZE;
+    size = ALIGN(words * WSIZE);
     if((long)(bp = mem_sbrk(size)) == -1){
         return NULL;
     }
@@ -195,7 +197,7 @@ int mm_init(void) // done
 
 static void *find_fit(size_t asize){ // done
     void *bp;
-    for(bp = heap_listp; bp != NULL; bp = GET_SUC(bp)){
+    for(bp = GET_SUC(heap_listp); bp != NULL; bp = GET_SUC(bp)){
         if(asize <= GET_SIZE(HDRP(bp))){
             return bp;
         }
@@ -241,7 +243,7 @@ void *mm_malloc(size_t size)
         asize = 2*DSIZE;
     }
     else{
-        asize = DSIZE * ((size + (DSIZE) + (DSIZE-1)) / DSIZE);
+        asize = ALIGN(size + DSIZE);
     }
 
     if((bp = find_fit(asize)) != NULL){
@@ -275,46 +277,71 @@ void mm_free(void *bp)
 /*
  * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
  */
+
 void *mm_realloc(void *ptr, size_t size)
 {
-    //size < copysize || GET_ALLOC(HDRP(NEXT_BLKP(bp))) == 1 >> move ptr
-    // GET_ALLOC(HDRP(NEXT_BLKP(bp))) == 1 && GET_SIZE(HDRP(NEXT_BLKP(bp))) > size - copysize
-    void *oldptr = ptr;
-    void *bp = ptr;
-    void *newptr;
-    size_t copySize;
-    copySize = GET_SIZE(HDRP(oldptr));
-    
-    if ((GET_ALLOC(HDRP(NEXT_BLKP(bp))) == 1 || size < copySize) || copySize + GET_SIZE(HDRP(NEXT_BLKP(bp))) < DSIZE * ((size + (DSIZE) + (DSIZE-1)) / DSIZE) ){
-        newptr = mm_malloc(size);
-        if (newptr == NULL)
+    void *new_ptr = ptr; /* Pointer to be returned */
+    void *bp;
+    size_t new_size = size; /* Size of new block */
+    int remainder;          /* Adequacy of block sizes */
+    int extendsize;         /* Size of heap extension */
+    int block_buffer;       /* Size of block buffer */
+    /* Ignore invalid block size */
+    if (size == 0)
         return NULL;
-        if (size < copySize)
-        copySize = size;
-        memcpy(newptr, oldptr, copySize);
-        mm_free(oldptr);
-        return newptr;
+    /* Adjust block size to include boundary tag and alignment requirements */
+    if (new_size <= DSIZE)
+    {
+        new_size = 2 * DSIZE;
     }
-    else if(size == copySize){
-        return oldptr;
-    }
-    else{
-        size = DSIZE * ((size + (DSIZE) + (DSIZE-1)) / DSIZE);
-        if (size - copySize < 2 * DSIZE){
-            PUT(HDRP(bp), PACK(size,1));
-            PUT(FTRP(bp), PACK(size,1));
-        }
-        else{
-            int next_block_size = GET_SIZE(HDRP(NEXT_BLKP(bp)));
-            detach_from_freelist(NEXT_BLKP(bp));
-            PUT(HDRP(bp), PACK(size,1));
-            PUT(FTRP(bp), PACK(size,1));
-            PUT(HDRP(NEXT_BLKP(bp)),PACK(copySize+next_block_size-size,0));
-            PUT(FTRP(NEXT_BLKP(bp)),PACK(copySize+next_block_size-size,0));
-            update_freelist(NEXT_BLKP(bp));
-        }
-        return ptr;
+    else
+    {
+        new_size = ALIGN(size + DSIZE);
     }
 
+    if ( GET_SIZE(HDRP(ptr)) < new_size) //늘리고싶다.
+    {
+        if (!GET_ALLOC(HDRP(NEXT_BLKP(ptr))))//next block is not allocated
+        {
+            remainder = GET_SIZE(HDRP(ptr)) + GET_SIZE(HDRP(NEXT_BLKP(ptr))) - new_size;
+            if (remainder >= 0)
+            {
+                detach_from_freelist(NEXT_BLKP(ptr));
+                PUT(HDRP(ptr), PACK(new_size + remainder, 1));
+                PUT(FTRP(ptr), PACK(new_size + remainder, 1));
+            }
+            else
+            {
+                if((new_ptr = mm_malloc(new_size - DSIZE)) == NULL){
+                    return NULL;
+                }
+                memcpy(new_ptr, ptr, MIN(size, new_size));
+                mm_free(ptr);
+            }
+        }
+        else if (!GET_SIZE(HDRP(NEXT_BLKP(ptr))))//next block is epilogue
+        {
+            remainder = GET_SIZE(HDRP(ptr)) - new_size;
+            extendsize = MAX(-remainder, CHUNKSIZE);
+            if ((long)(bp = mem_sbrk(extendsize)) == -1)
+            {
+                return NULL;
+            }
+            PUT(HDRP(bp), PACK(extendsize, 0));
+            PUT(FTRP(bp), PACK(extendsize, 0));
+            PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));
+            PUT(HDRP(ptr), PACK(GET_SIZE(HDRP(ptr)) + extendsize, 0));
+            PUT(FTRP(ptr), PACK(GET_SIZE(HDRP(ptr)), 0));
+            place(ptr, new_size);
+        }
+        else
+        {
+            if((new_ptr = mm_malloc(new_size - DSIZE)) == NULL){
+                return NULL;
+            }
+            memcpy(new_ptr, ptr, MIN(size, new_size));
+            mm_free(ptr);
+        }
+    }
+    return new_ptr;
 }
-
