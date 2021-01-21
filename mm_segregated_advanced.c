@@ -91,6 +91,7 @@ static void *coalesce(void *bp)
     size_t size = GET_SIZE(HDRP(bp));
     if (prev_alloc && next_alloc)
     {
+        /* @@ 이 부분은 if 문이 끝나고 수행되는 작업인데 명시적으로 선언해준 이유가 있을까요?*/
         update_free(bp);
         return bp;
     }
@@ -108,6 +109,15 @@ static void *coalesce(void *bp)
         PUT(FTRP(bp), PACK(size, 0));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
+
+        /* @@ bp를 PREV_BLKP 으로 먼저 바꿔주면 모든 케이스에서 
+        동일하게 PUT을 가져다 쓸 수 있고 매크로를 중첩하지 않아도 될 것 같네요
+        size += GET_SIZE(HDRP(PREV_BLKP(bp)));
+        bp = PREV_BLKP(bp);
+        PUT(HDRP(bp), PACK(size, 0));
+        PUT(FTRP(bp), PACK(size, 0));
+        */
+
     }
     else
     {
@@ -117,6 +127,12 @@ static void *coalesce(void *bp)
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         PUT(FTRP((NEXT_BLKP(bp))), PACK(size, 0));
         bp = PREV_BLKP(bp);
+        /* @@ 위에라 같은 이유
+        size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
+        bp = PREV_BLKP(bp);
+        PUT(HDRP(bp), PACK(size, 0));
+        PUT(FTRP(bp), PACK(size, 0));
+        */
     }
     update_free(bp);
     return bp;
@@ -209,6 +225,7 @@ int mm_init(void)
     PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));
     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));
     PUT(heap_listp + (3 * WSIZE), PACK(0, 1));
+    /* @@ heap_listp의 값을 변경해주는 이유가 어떤걸까요? */
     heap_listp += (2 * WSIZE);
     if (extend_heap(CHUNKSIZE / WSIZE) == NULL)
         return -1;
@@ -226,7 +243,6 @@ void *mm_malloc(size_t size)
     else
         asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
     if ((bp = find_fit(asize)) != NULL)
-    {
         bp = place(bp, asize);
         return bp;
     }
@@ -243,6 +259,8 @@ void mm_free(void *ptr)
     PUT(FTRP(ptr), PACK(size, 0));
     coalesce(ptr);
 }
+/* @@ 가용 블록의 자료구조 별 구현이 끝나면 점수가 거의 비슷하게 나오는데
+   유일하게 realloc을 수정한 팀의 코드를 볼 수 있어서 참고가 많이 되네요 */
 void *mm_realloc(void *ptr, size_t size)
 {
     void *new_ptr = ptr; /* Pointer to be returned */
@@ -255,6 +273,7 @@ void *mm_realloc(void *ptr, size_t size)
     if (size == 0)
         return NULL;
     /* Adjust block size to include boundary tag and alignment requirements */
+    /* @@ if문을 new_size = MAX(ALIGN(new_size) + DSIZE, 2 * DSIZE); 로 줄여볼 수도 있을 것 같네요 */
     if (new_size <= DSIZE)
     {
         new_size = 2 * DSIZE;
@@ -263,8 +282,11 @@ void *mm_realloc(void *ptr, size_t size)
     {
         new_size = ALIGN(size + DSIZE);
     }
+
     if (GET_SIZE(HDRP(ptr)) < new_size) //늘리고싶다.
     {
+        /* @@ 뒤에 빈 블록이 있다
+        */
         if (!GET_ALLOC(HDRP(NEXT_BLKP(ptr))))
         {
             remainder = GET_SIZE(HDRP(ptr)) + GET_SIZE(HDRP(NEXT_BLKP(ptr))) - new_size;
@@ -275,6 +297,19 @@ void *mm_realloc(void *ptr, size_t size)
                 PUT(FTRP(ptr), PACK(new_size + remainder, 1));
             }
         }
+
+        /* @@ size가 0인 블록, 에필로그 헤더가 있다 
+        */
+        /* @@ 맨 뒤에서 realloc 하면서 heap 크기를 키워야하는 상황 같은데
+           extend_heap 을 사용해서 뒤에 블록이 추가하고 위에
+           if (!GET_ALLOC(HDRP(NEXT_BLKP(ptr)))) 인 경우로 돌아가서 처리를 하는 식으로
+           구현하다고 하면 혹시 문제가 있을까요?
+
+           크기를 늘려야 하는 상황에서 다음 블록이 에필로그 블록인지 아닌지를 먼저 확인하고
+           에필로그 블록이면 미리 늘려준 다음
+           뒤가 가용 블록인지 할당 블록인지를 if 문으로 처리하면 지금 코드에서 고려된 사항 중에
+           놓치게 되는 부분이 있을까요?
+        */
         else if (!GET_SIZE(HDRP(NEXT_BLKP(ptr))))
         {
             remainder = GET_SIZE(HDRP(ptr)) - new_size;
@@ -306,12 +341,17 @@ void *mm_realloc(void *ptr, size_t size)
                 PUT(FTRP(ptr), PACK(GET_SIZE(HDRP(ptr)), 1));
             }
         }
+        /* @@ 뒤에 할당 블록이 있는 경우
+        */
         else
         {
+
             new_ptr = mm_malloc(new_size - DSIZE);
             memcpy(new_ptr, ptr, MIN(size, new_size));
             mm_free(ptr);
         }
     }
+    /* @@ 줄이고 싶은 경우에 대한 처리는 어떻게 되는 걸까요?
+    */
     return new_ptr;
 }
