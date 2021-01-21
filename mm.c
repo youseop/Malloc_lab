@@ -310,6 +310,12 @@ void *mm_realloc(void *ptr, size_t size)
                 PUT(HDRP(ptr), PACK(new_size + remainder, 1));
                 PUT(FTRP(ptr), PACK(new_size + remainder, 1));
             }
+            else
+            {
+                new_ptr = mm_malloc(new_size - DSIZE);
+                memcpy(new_ptr, ptr, MIN(size, new_size));
+                mm_free(ptr);
+            }
         }
         else if (!GET_SIZE(HDRP(NEXT_BLKP(ptr))))//next block is epilogue
         {
